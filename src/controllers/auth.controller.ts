@@ -27,6 +27,11 @@ export async function register(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    if (typeof password !== 'string' || password.length < 6) {
+      res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+      return;
+    }
+
     // Verify company exists
     const companyCheck = await query('SELECT id, name FROM companies WHERE id = $1', [company_id]);
     if (companyCheck.rowCount === 0) {

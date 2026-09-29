@@ -30,6 +30,17 @@ describe('Feature 1: Authentication Endpoints', () => {
       expect(res.body.error).toBeDefined();
     });
 
+    it('should reject registration if password is shorter than 6 characters', async () => {
+      const res = await request(app).post('/auth/register').send({
+        company_id: companyId,
+        email: `short_pw_${Date.now()}@deliverback.com`,
+        password: '123',
+        full_name: 'Short PW User'
+      });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/at least 6 characters/i);
+    });
+
     it('should fail if company does not exist', async () => {
       const res = await request(app).post('/auth/register').send({
         company_id: 999999,

@@ -515,6 +515,6 @@ Following our security audit, here are the vulnerabilities identified, what has 
    - **Previously**: Framework headers broadcasted `X-Powered-By: Express` in every HTTP response, and standard security headers were missing.
    - **New Fix**: Explicitly disabled `x-powered-by` via `app.disable('x-powered-by')` and applied `helmet()` to enforce standard defensive headers (`X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, and HSTS).
 
-
-
-
+8. **Enforced Minimum Password Length on Registration (`POST /auth/register`)**:
+   - **Previously**: While `POST /auth/reset-password` required passwords to be at least 6 characters, `POST /auth/register` only checked for presence, permitting trivially short passwords (such as 1 character).
+   - **New Fix**: Added strict length validation in `src/controllers/auth.controller.ts` ensuring all registration passwords are at least 6 characters long (`password.length >= 6`), returning a clean `400 Bad Request` if insufficient.
