@@ -17,7 +17,7 @@ router.post('/expenses/:id/receipt', authenticate, upload.single('receipt'), upl
 // POST /expenses/:id/receipt-from-url: download from remote URL
 router.post('/expenses/:id/receipt-from-url', authenticate, urlDownloadLimiter, uploadReceiptFromUrl);
 
-// GET /receipts/:filename: download a receipt file
-router.get('/receipts/:filename', downloadReceipt);
+// GET /receipts/:filename: download a receipt file (authenticated & tenant scoped)
+router.get('/receipts/:filename', authenticate, downloadReceipt);
 
 export default router;

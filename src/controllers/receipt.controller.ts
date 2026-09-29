@@ -191,8 +191,14 @@ export async function uploadReceiptFromUrl(req: AuthRequest, res: Response): Pro
 }
 
 // 3. GET /receipts/:filename: download a receipt file
-export async function downloadReceipt(req: Request, res: Response): Promise<void> {
+export async function downloadReceipt(req: AuthRequest, res: Response): Promise<void> {
   try {
+    const user = req.user;
+    if (!user) {
+      res.status(401).json({ error: 'Authentication required.' });
+      return;
+    }
+
     const rawFilename = req.params.filename;
 
     // Guard against path traversal attacks (e.g. ../../etc/passwd)
@@ -201,6 +207,31 @@ export async function downloadReceipt(req: Request, res: Response): Promise<void
 
     if (!fs.existsSync(filePath)) {
       res.status(404).json({ error: 'Receipt file not found.' });
+      return;
+    }
+
+    // Query database for the expense owning this receipt file to enforce tenant and role scoping
+    const expenseRes = await query(
+      `SELECT company_id, user_id FROM expenses WHERE receipt_file = $1`,
+      [sanitizedFilename]
+    );
+
+    if (expenseRes.rowCount === 0) {
+      res.status(404).json({ error: 'Receipt file not found.' });
+      return;
+    }
+
+    const expense = expenseRes.rows[0];
+
+    // Multi-tenant check: Company isolation
+    if (expense.company_id !== user.companyId) {
+      res.status(404).json({ error: 'Receipt file not found.' });
+      return;
+    }
+
+    // Role scoping: Employees can only view receipts for their own expenses; managers can view all company receipts
+    if (user.role === 'employee' && expense.user_id !== user.userId) {
+      res.status(403).json({ error: 'Forbidden: You can only view receipts for your own expenses.' });
       return;
     }
 

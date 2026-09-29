@@ -10,6 +10,9 @@ const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 describe('Feature 4: Receipts Endpoints', () => {
   let employeeCookie: string;
+  let managerCookie: string;
+  let coworkerCookie: string;
+  let otherCompanyCookie: string;
   let expenseId: number;
   let uploadedFilename = '';
   const dummyFilePath = path.join(__dirname, 'dummy_receipt.png');
@@ -23,12 +26,33 @@ describe('Feature 4: Receipts Endpoints', () => {
     ]);
     fs.writeFileSync(dummyFilePath, pngHeader);
 
-    // Alice login
+    // Alice login (employee - Company 1)
     const loginRes = await request(app).post('/auth/login').send({
       email: 'alice@deliverback.com',
       password: 'Password123!'
     });
     employeeCookie = loginRes.headers['set-cookie'][0];
+
+    // George login (manager - Company 1)
+    const managerLogin = await request(app).post('/auth/login').send({
+      email: 'george@deliverback.com',
+      password: 'Password123!'
+    });
+    managerCookie = managerLogin.headers['set-cookie'][0];
+
+    // Bob login (different employee - Company 1)
+    const bobLogin = await request(app).post('/auth/login').send({
+      email: 'bob@deliverback.com',
+      password: 'Password123!'
+    });
+    coworkerCookie = bobLogin.headers['set-cookie'][0];
+
+    // Lucas login (manager - Company 2)
+    const otherLogin = await request(app).post('/auth/login').send({
+      email: 'lucas@loopcv.com',
+      password: 'Password123!'
+    });
+    otherCompanyCookie = otherLogin.headers['set-cookie'][0];
 
     // Find Alice's pending expense
     const res = await pool.query(
@@ -81,16 +105,50 @@ describe('Feature 4: Receipts Endpoints', () => {
   });
 
   describe('GET /receipts/:filename (download receipt)', () => {
-    it('should return 404 for non-existent receipt', async () => {
-      const res = await request(app).get('/receipts/non-existent-receipt-999.png');
+    it('should reject unauthenticated receipt download with 401', async () => {
+      const res = await request(app).get(`/receipts/${uploadedFilename}`);
+      expect(res.status).toBe(401);
+      expect(res.body.error).toMatch(/authentication required/i);
+    });
+
+    it('should reject cross-company receipt download with 404', async () => {
+      const res = await request(app)
+        .get(`/receipts/${uploadedFilename}`)
+        .set('Cookie', [otherCompanyCookie]);
       expect(res.status).toBe(404);
       expect(res.body.error).toMatch(/not found/i);
     });
 
-    it('should successfully download the uploaded receipt', async () => {
-      const res = await request(app).get(`/receipts/${uploadedFilename}`);
+    it('should forbid other employees from downloading receipt with 403', async () => {
+      const res = await request(app)
+        .get(`/receipts/${uploadedFilename}`)
+        .set('Cookie', [coworkerCookie]);
+      expect(res.status).toBe(403);
+      expect(res.body.error).toMatch(/only view receipts for your own expenses/i);
+    });
+
+    it('should allow submitting employee to download their own receipt', async () => {
+      const res = await request(app)
+        .get(`/receipts/${uploadedFilename}`)
+        .set('Cookie', [employeeCookie]);
       expect(res.status).toBe(200);
       expect(res.headers['content-disposition']).toMatch(/attachment/i);
+    });
+
+    it('should allow company manager to download company employee receipt', async () => {
+      const res = await request(app)
+        .get(`/receipts/${uploadedFilename}`)
+        .set('Cookie', [managerCookie]);
+      expect(res.status).toBe(200);
+      expect(res.headers['content-disposition']).toMatch(/attachment/i);
+    });
+
+    it('should return 404 for non-existent receipt when authenticated', async () => {
+      const res = await request(app)
+        .get('/receipts/non-existent-receipt-999.png')
+        .set('Cookie', [employeeCookie]);
+      expect(res.status).toBe(404);
+      expect(res.body.error).toMatch(/not found/i);
     });
   });
 

@@ -303,7 +303,7 @@ Downloads remote receipt from cloud storage URL and saves to server:
 ```
 
 #### `GET /api/receipts/:filename`
-Downloads stored receipt with path traversal protection.
+Downloads stored receipt with path traversal protection (`path.basename`), JWT authentication, and strict multi-tenant authorization (employees can only download receipts for their own expenses; managers can download any company receipt).
 
 ---
 
@@ -498,21 +498,21 @@ Following our security audit, here are the vulnerabilities identified, what has 
    - **Previously**: No rate limiting was implemented on sensitive authentication endpoints or external URL fetchers.
    - **New Fix**: Added `express-rate-limit` middleware (`authLimiter` with max 20 requests per 15 mins per IP across `/auth/*`, and `urlDownloadLimiter` on remote receipt fetching).
 
+4. **Receipt Download Tenant & Ownership Authorization (`GET /receipts/:filename`)**:
+   - **Previously**: Receipts were served without authentication or tenant verification, allowing anyone with the filename to access confidential receipts across different companies.
+   - **New Fix**: Enforced `authenticate` middleware and database expense verification. Confirms that `expense.company_id === user.companyId` and strictly restricts employees to their own expense receipts (`expense.user_id === user.userId`), while allowing company managers full oversight.
+
 ---
 
 ### 📋 Next Planned Security Fixes
 
-The following 3 items were identified in our audit and are scheduled to be implemented next:
+The following 2 items were identified in our audit and are scheduled to be implemented next:
 
-1. **Protect Receipt Downloads (`GET /receipts/:filename`)**:
-   - *Current State*: Currently served without authentication or company checks.
-   - *Fix*: Require `authenticate` middleware, query DB for expense ownership, and ensure only the submitting employee or company managers can download the file.
-
-2. **Fix SSRF in `uploadReceiptFromUrl` (`POST /expenses/:id/receipt-from-url`)**:
+1. **Fix SSRF in `uploadReceiptFromUrl` (`POST /expenses/:id/receipt-from-url`)**:
    - *Current State*: Fetches any HTTP/HTTPS URL without IP validation.
    - *Fix*: Add DNS resolution checks to block private, loopback, and cloud-metadata IP ranges (`127.0.0.1`, `10.0.0.0/8`, `169.254.169.254`).
 
-3. **Tighten CORS & Remove Hardcoded JWT Secret**:
+2. **Tighten CORS & Remove Hardcoded JWT Secret**:
    - *Current State*: Reflects requesting origins (`origin: true`) and has a hardcoded default fallback JWT secret.
    - *Fix*: Whitelist explicit frontend origins and enforce a mandatory environment `JWT_SECRET` in production.
 
