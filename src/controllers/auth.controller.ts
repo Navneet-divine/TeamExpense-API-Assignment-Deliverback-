@@ -136,31 +136,37 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
       [email]
     );
 
+    // Uniform response to prevent user enumeration attacks
+    const genericSuccessMessage =
+      'If an account exists with this email address, a password reset link has been generated.';
+
     if (userResult.rowCount === 0) {
-      res.status(404).json({ error: 'User does not exist with this email address.' });
+      res.status(200).json({ message: genericSuccessMessage });
       return;
     }
 
     const user = userResult.rows[0];
-    const resetToken = crypto.randomBytes(32).toString('hex');
+    const rawResetToken = crypto.randomBytes(32).toString('hex');
+    // Store SHA-256 hash of token in the database to protect against DB leaks
+    const hashedToken = crypto.createHash('sha256').update(rawResetToken).digest('hex');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
     await query(
       `UPDATE users
        SET reset_token = $1, reset_token_expires_at = $2
        WHERE id = $3`,
-      [resetToken, expiresAt, user.id]
+      [hashedToken, expiresAt, user.id]
     );
 
-    const resetLink = `${BASE_URL}/auth/reset-password?token=${resetToken}`;
+    const resetLink = `${BASE_URL}/auth/reset-password?token=${rawResetToken}`;
     console.log('====================================================');
     console.log(`🔐 [PASSWORD RESET LINK for ${user.email}]:`);
     console.log(`🔗 ${resetLink}`);
-    console.log(`Token: ${resetToken}`);
+    console.log(`Token: ${rawResetToken}`);
     console.log('====================================================');
 
     res.status(200).json({
-      message: 'Password reset link has been generated and logged to the console.'
+      message: genericSuccessMessage
     });
   } catch (error: any) {
     console.error('Forgot password error:', error);
@@ -184,11 +190,14 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
       return;
     }
 
+    // Hash incoming token using SHA-256 to compare against the hashed token in DB
+    const hashedToken = crypto.createHash('sha256').update(token.trim()).digest('hex');
+
     const result = await query(
       `SELECT id, email, reset_token_expires_at
        FROM users
        WHERE reset_token = $1`,
-      [token]
+      [hashedToken]
     );
 
     if (result.rowCount === 0) {

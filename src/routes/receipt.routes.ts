@@ -6,6 +6,7 @@ import {
 } from '../controllers/receipt.controller';
 import { authenticate } from '../middleware/auth';
 import { upload } from '../middleware/upload';
+import { urlDownloadLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
@@ -14,7 +15,7 @@ const router = Router();
 router.post('/expenses/:id/receipt', authenticate, upload.single('receipt'), uploadReceipt);
 
 // POST /expenses/:id/receipt-from-url: download from remote URL
-router.post('/expenses/:id/receipt-from-url', authenticate, uploadReceiptFromUrl);
+router.post('/expenses/:id/receipt-from-url', authenticate, urlDownloadLimiter, uploadReceiptFromUrl);
 
 // GET /receipts/:filename: download a receipt file
 router.get('/receipts/:filename', downloadReceipt);

@@ -1,4 +1,5 @@
 import request from 'supertest';
+import crypto from 'crypto';
 import app from '../src/app';
 import { pool } from '../src/config/db';
 
@@ -96,28 +97,42 @@ describe('Feature 1: Authentication Endpoints', () => {
   });
 
   describe('POST /auth/forgot-password & POST /auth/reset-password', () => {
-    it('should return 404 if email does not exist on forgot-password', async () => {
+    it('should return 200 with generic message for non-existent email to prevent user enumeration', async () => {
       const res = await request(app).post('/auth/forgot-password').send({
         email: 'unknown_ghost_email_999@deliverback.com'
       });
-      expect(res.status).toBe(404);
-      expect(res.body.error).toMatch(/user does not exist/i);
+      expect(res.status).toBe(200);
+      expect(res.body.message).toMatch(/if an account exists/i);
     });
 
-    it('should generate a reset token and log the link to console', async () => {
+    it('should generate a reset token, log the link to console, and store the SHA-256 hash in DB', async () => {
+      let capturedToken = '';
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation((...args) => {
+        for (const arg of args) {
+          if (typeof arg === 'string' && arg.startsWith('Token: ')) {
+            capturedToken = arg.replace('Token: ', '').trim();
+          }
+        }
+      });
+
       const res = await request(app).post('/auth/forgot-password').send({
         email: testEmail
       });
 
-      expect(res.status).toBe(200);
+      consoleSpy.mockRestore();
 
-      // Verify token was saved in database
+      expect(res.status).toBe(200);
+      expect(res.body.message).toMatch(/if an account exists/i);
+      expect(capturedToken).toBeTruthy();
+      resetToken = capturedToken;
+
+      // Verify SHA-256 hash was saved in database, NOT raw token
       const userRes = await pool.query(
         'SELECT reset_token FROM users WHERE email = $1',
         [testEmail.toLowerCase()]
       );
-      expect(userRes.rows[0].reset_token).toBeTruthy();
-      resetToken = userRes.rows[0].reset_token;
+      const expectedHash = crypto.createHash('sha256').update(capturedToken).digest('hex');
+      expect(userRes.rows[0].reset_token).toBe(expectedHash);
     });
 
     it('should reject password reset with an invalid token', async () => {
@@ -151,3 +166,4 @@ describe('Feature 1: Authentication Endpoints', () => {
     });
   });
 });
+

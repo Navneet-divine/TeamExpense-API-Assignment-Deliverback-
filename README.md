@@ -12,7 +12,7 @@ This system allows employees from multiple companies to submit expenses and rece
 * **Database**: **Neon Serverless PostgreSQL** (cloud-hosted on AWS with SSL connection pooling)
 * **Data Access Layer**: Raw parameterized SQL with [`pg`](https://node-postgres.com/) (`v8.13.1` node-postgres)
   * *Decision*: As requested by the assignment specification, no full ORM (like Prisma or TypeORM) is used. All SQL queries use `$1, $2` parameterization to strictly prevent SQL injection while maintaining raw query performance.
-* **Authentication**: JSON Web Tokens (JWT) stored in secure, `httpOnly` cookies (`token`), with constant-time password hashing via `bcryptjs`.
+* **Authentication & Security**: JSON Web Tokens (JWT) stored in secure `httpOnly` cookies (`token`), constant-time password hashing via `bcryptjs`, SHA-256 hashed password reset tokens, anti-user enumeration responses, and brute-force protection using `express-rate-limit`.
 * **Testing**: Automated integration tests with **Jest `29.7.0`** and **Supertest `7.0.0`** covering all API endpoints against the live Neon PostgreSQL database.
 
 ---
@@ -181,7 +181,10 @@ Authenticates user, sets `httpOnly` cookie (`token`), and returns token + profil
   ```
 
 #### `POST /api/auth/forgot-password`
-Accepts an email and generates a secure reset token valid for 1 hour. Logs the reset link to the console instead of sending email. Returns `404` if the email is not registered.
+Accepts an email and generates a secure reset token valid for 1 hour. Logs the reset link to the console instead of sending email. 
+* **User Enumeration Defense**: Always returns a uniform `200 OK` with a generic message regardless of whether the email is registered, preventing attackers from harvesting valid company email addresses.
+* **Token Hashing**: Reset tokens are hashed with SHA-256 before storage in PostgreSQL, ensuring database leaks cannot be used to compromise accounts.
+* **Rate Limiting**: Protected by `express-rate-limit` against brute-force spamming.
 * **Request Body**:
   ```json
   {
@@ -191,7 +194,7 @@ Accepts an email and generates a secure reset token valid for 1 hour. Logs the r
 * **Response (`200 OK`)**:
   ```json
   {
-    "message": "Password reset link has been generated and logged to the console."
+    "message": "If an account exists with this email address, a password reset link has been generated."
   }
   ```
 
@@ -474,3 +477,42 @@ Test coverage includes:
 - Comment creation, employee/manager permissions, threaded conversation loading, and server-rendered HTML email views
 - CSV report generation, Excel compatibility with UTF-8 BOM, date range filters, and company isolation
 - Multi-currency category statistics exact to the cent, period calculations, and tenant isolation
+
+---
+
+## 🔒 Security Audit & Fixes
+
+Following our security audit, here are the vulnerabilities identified, what has been newly patched, and what is scheduled next:
+
+### 🛠️ Newly Added Security Patches
+
+1. **Anti-User Enumeration on Password Reset (`POST /auth/forgot-password`)**:
+   - **Previously**: The endpoint returned `404 Not Found` if an email did not exist, allowing attackers to probe and enumerate valid corporate email addresses.
+   - **New Fix**: Now returns a uniform `200 OK` generic message (*"If an account exists with this email address, a password reset link has been generated."*) regardless of whether the email is registered, eliminating user harvesting.
+
+2. **Hashed Reset Token Storage (SHA-256)**:
+   - **Previously**: Reset tokens were stored in plaintext inside the `users.reset_token` database column.
+   - **New Fix**: Reset tokens are now hashed with SHA-256 (`crypto.createHash('sha256').update(token).digest('hex')`) before being saved in PostgreSQL. Incoming tokens are hashed on the fly before verification. If database dumps or query logs are ever compromised, active reset tokens cannot be abused.
+
+3. **Brute-Force & Rate Limiting Protection (`express-rate-limit`)**:
+   - **Previously**: No rate limiting was implemented on sensitive authentication endpoints or external URL fetchers.
+   - **New Fix**: Added `express-rate-limit` middleware (`authLimiter` with max 20 requests per 15 mins per IP across `/auth/*`, and `urlDownloadLimiter` on remote receipt fetching).
+
+---
+
+### 📋 Next Planned Security Fixes
+
+The following 3 items were identified in our audit and are scheduled to be implemented next:
+
+1. **Protect Receipt Downloads (`GET /receipts/:filename`)**:
+   - *Current State*: Currently served without authentication or company checks.
+   - *Fix*: Require `authenticate` middleware, query DB for expense ownership, and ensure only the submitting employee or company managers can download the file.
+
+2. **Fix SSRF in `uploadReceiptFromUrl` (`POST /expenses/:id/receipt-from-url`)**:
+   - *Current State*: Fetches any HTTP/HTTPS URL without IP validation.
+   - *Fix*: Add DNS resolution checks to block private, loopback, and cloud-metadata IP ranges (`127.0.0.1`, `10.0.0.0/8`, `169.254.169.254`).
+
+3. **Tighten CORS & Remove Hardcoded JWT Secret**:
+   - *Current State*: Reflects requesting origins (`origin: true`) and has a hardcoded default fallback JWT secret.
+   - *Fix*: Whitelist explicit frontend origins and enforce a mandatory environment `JWT_SECRET` in production.
+
