@@ -518,3 +518,7 @@ Following our security audit, here are the vulnerabilities identified, what has 
 8. **Enforced Minimum Password Length on Registration (`POST /auth/register`)**:
    - **Previously**: While `POST /auth/reset-password` required passwords to be at least 6 characters, `POST /auth/register` only checked for presence, permitting trivially short passwords (such as 1 character).
    - **New Fix**: Added strict length validation in `src/controllers/auth.controller.ts` ensuring all registration passwords are at least 6 characters long (`password.length >= 6`), returning a clean `400 Bad Request` if insufficient.
+
+9. **File Upload Extension & MIME Whitelisting (`POST /expenses/:id/receipt`)**:
+   - **Previously**: Only inspected the client-controlled `file.mimetype` header without checking the file extension, potentially allowing malicious files (e.g. `.sh`, `.php`, `.exe`) to be uploaded if paired with an image MIME type.
+   - **New Fix**: Enhanced `src/middleware/upload.ts` to strictly validate both `file.mimetype` and `path.extname(file.originalname).toLowerCase()` against an explicit safe extension whitelist (`.jpg`, `.jpeg`, `.png`, `.webp`, `.gif`, `.pdf`).

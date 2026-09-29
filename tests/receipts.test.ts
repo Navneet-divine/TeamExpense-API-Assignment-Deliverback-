@@ -102,6 +102,16 @@ describe('Feature 4: Receipts Endpoints', () => {
       const filePath = path.join(process.cwd(), 'uploads', uploadedFilename);
       expect(fs.existsSync(filePath)).toBe(true);
     });
+
+    it('should reject file upload with disallowed extension', async () => {
+      const res = await request(app)
+        .post(`/expenses/${expenseId}/receipt`)
+        .set('Cookie', [employeeCookie])
+        .attach('receipt', Buffer.from('echo "malicious"'), 'script.sh');
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/Invalid file type/i);
+    });
   });
 
   describe('GET /receipts/:filename (download receipt)', () => {

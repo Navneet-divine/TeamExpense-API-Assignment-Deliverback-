@@ -75,8 +75,11 @@ app.use((_req: Request, res: Response) => {
 
 // Global error handler
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-  console.error('Unhandled application error:', err);
-  res.status(err.status || 500).json({
+  const status = err.status || (err.name === 'MulterError' ? 400 : 500);
+  if (status >= 500) {
+    console.error('Unhandled application error:', err);
+  }
+  res.status(status).json({
     error: err.message || 'Internal Server Error'
   });
 });
