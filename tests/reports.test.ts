@@ -117,6 +117,28 @@ describe('Feature 7: Export Endpoints (GET /reports/export.csv)', () => {
     expect(loopcvRes.text).not.toContain('Alice Jenkins');
   });
 
+  it('should neutralize CSV formula injection with leading whitespace in exported cells', async () => {
+    // Alice submits an expense with leading whitespace and a formula
+    await request(app)
+      .post('/expenses')
+      .set('Cookie', employeeCookie)
+      .send({
+        amount: 25.0,
+        currency: 'EUR',
+        category: 'travel',
+        title: '   =cmd|/C calc!A0',
+        date: '2026-03-15'
+      });
+
+    const res = await request(app)
+      .get('/reports/export.csv')
+      .set('Cookie', managerCookie);
+
+    expect(res.status).toBe(200);
+    // The dangerous cell should be prepended with a single quote (') to neutralize execution in Excel
+    expect(res.text).toContain("'=cmd|/C calc!A0");
+  });
+
   describe('Feature 8: Statistics Endpoints (GET /reports/summary)', () => {
     it('should reject unauthenticated request', async () => {
       const res = await request(app).get('/reports/summary');

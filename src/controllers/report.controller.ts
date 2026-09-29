@@ -9,8 +9,10 @@ function escapeCsvCell(val: any): string {
   if (val === null || val === undefined) return '';
   let str = String(val);
 
-  // Prevent Excel formula injection if cell starts with =, +, -, or @
-  if (/^[=+\-@]/.test(str)) {
+  // Prevent Excel formula injection (CSV Injection / CWE-1236)
+  // Spreadsheets ignore leading whitespace and trigger on =, +, -, @, \t, \r, %
+  const trimmed = str.trimStart();
+  if (/^[=+\-@\t\r%]/.test(trimmed)) {
     str = `'${str}`;
   }
 
