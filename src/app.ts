@@ -1,5 +1,6 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import authRoutes from './routes/auth.routes';
 import userRoutes from './routes/user.routes';
@@ -10,6 +11,12 @@ import commentRoutes from './routes/comment.routes';
 import reportRoutes from './routes/report.routes';
 
 const app: Application = express();
+
+// Disable Express fingerprint header explicitly
+app.disable('x-powered-by');
+
+// Apply baseline security headers via Helmet
+app.use(helmet());
 
 const defaultAllowedOrigins = [
   'http://localhost:3000',

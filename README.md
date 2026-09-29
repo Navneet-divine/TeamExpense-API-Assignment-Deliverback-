@@ -511,5 +511,10 @@ Following our security audit, here are the vulnerabilities identified, what has 
    - **Previously**: Dynamically mirrored arbitrary requesting origins (`origin: true`) with `credentials: true`, allowing untrusted third-party sites to perform credentialed requests. Also used hardcoded fallback secret strings in multiple files if `JWT_SECRET` was omitted.
    - **New Fix**: Implemented explicit CORS origin whitelisting in `src/app.ts` (`ALLOWED_ORIGINS` with safe defaults). Centralized secret management in `src/config/jwt.ts`, which validates secrets and halts server startup in production if `JWT_SECRET` is missing or under 32 characters.
 
+7. **HTTP Security Headers & Framework Fingerprint Removal**:
+   - **Previously**: Framework headers broadcasted `X-Powered-By: Express` in every HTTP response, and standard security headers were missing.
+   - **New Fix**: Explicitly disabled `x-powered-by` via `app.disable('x-powered-by')` and applied `helmet()` to enforce standard defensive headers (`X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, and HSTS).
+
+
 
 
