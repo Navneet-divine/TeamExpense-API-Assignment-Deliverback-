@@ -190,5 +190,45 @@ describe('Feature 4: Receipts Endpoints', () => {
       expect(res.status).toBe(400);
       expect(res.body.error).toMatch(/not supported/i);
     });
+
+    it('should reject SSRF attempts to localhost', async () => {
+      const res = await request(app)
+        .post(`/expenses/${expenseId}/receipt-from-url`)
+        .set('Cookie', [employeeCookie])
+        .send({ url: 'http://localhost:5001/api/expenses' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/blocked for security|internal/i);
+    });
+
+    it('should reject SSRF attempts to 127.0.0.1 (loopback IP)', async () => {
+      const res = await request(app)
+        .post(`/expenses/${expenseId}/receipt-from-url`)
+        .set('Cookie', [employeeCookie])
+        .send({ url: 'http://127.0.0.1:8080/secret.pdf' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/blocked for security|private/i);
+    });
+
+    it('should reject SSRF attempts to AWS/cloud metadata IP (169.254.169.254)', async () => {
+      const res = await request(app)
+        .post(`/expenses/${expenseId}/receipt-from-url`)
+        .set('Cookie', [employeeCookie])
+        .send({ url: 'http://169.254.169.254/latest/meta-data/' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/blocked for security|private/i);
+    });
+
+    it('should reject SSRF attempts to private network addresses (192.168.x.x)', async () => {
+      const res = await request(app)
+        .post(`/expenses/${expenseId}/receipt-from-url`)
+        .set('Cookie', [employeeCookie])
+        .send({ url: 'http://192.168.1.1/internal.pdf' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/blocked for security|private/i);
+    });
   });
 });

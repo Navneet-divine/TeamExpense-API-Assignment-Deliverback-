@@ -296,6 +296,7 @@ Uploads a receipt file (multipart/form-data with field `receipt`). Supports Imag
 
 #### `POST /api/expenses/:id/receipt-from-url`
 Downloads remote receipt from cloud storage URL and saves to server:
+- **SSRF Defense**: Validates remote URLs via DNS pre-flight resolution and blocks requests targeting `localhost`, loopback (`127.0.0.1`), private networks (`10.0.0.0/8`, `192.168.0.0/16`, `172.16.0.0/12`), or cloud metadata endpoints (`169.254.169.254`).
 ```json
 {
   "url": "https://example.com/invoices/receipt_123.pdf"
@@ -502,17 +503,18 @@ Following our security audit, here are the vulnerabilities identified, what has 
    - **Previously**: Receipts were served without authentication or tenant verification, allowing anyone with the filename to access confidential receipts across different companies.
    - **New Fix**: Enforced `authenticate` middleware and database expense verification. Confirms that `expense.company_id === user.companyId` and strictly restricts employees to their own expense receipts (`expense.user_id === user.userId`), while allowing company managers full oversight.
 
+5. **Server-Side Request Forgery (SSRF) Protection (`POST /expenses/:id/receipt-from-url`)**:
+   - **Previously**: Fetched remote URLs via HTTP without verifying the destination host, exposing internal infrastructure, local ports, and cloud instance metadata (`169.254.169.254`).
+   - **New Fix**: Implemented pre-flight DNS and IP validation in `src/utils/ssrfValidator.ts`. Automatically blocks requests targeting `localhost`, loopback addresses (`127.0.0.0/8`), private networks (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), or cloud metadata endpoints (`169.254.169.254`).
+
 ---
 
 ### 📋 Next Planned Security Fixes
 
-The following 2 items were identified in our audit and are scheduled to be implemented next:
+The following item was identified in our audit and is scheduled to be implemented next:
 
-1. **Fix SSRF in `uploadReceiptFromUrl` (`POST /expenses/:id/receipt-from-url`)**:
-   - *Current State*: Fetches any HTTP/HTTPS URL without IP validation.
-   - *Fix*: Add DNS resolution checks to block private, loopback, and cloud-metadata IP ranges (`127.0.0.1`, `10.0.0.0/8`, `169.254.169.254`).
-
-2. **Tighten CORS & Remove Hardcoded JWT Secret**:
+1. **Tighten CORS & Remove Hardcoded JWT Secret**:
    - *Current State*: Reflects requesting origins (`origin: true`) and has a hardcoded default fallback JWT secret.
    - *Fix*: Whitelist explicit frontend origins and enforce a mandatory environment `JWT_SECRET` in production.
+
 

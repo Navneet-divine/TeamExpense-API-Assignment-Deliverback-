@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import axios from 'axios';
 import { AuthRequest } from '../types';
 import { query } from '../config/db';
+import { validateUrlForSsrf } from '../utils/ssrfValidator';
 
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
 
@@ -131,6 +132,14 @@ export async function uploadReceiptFromUrl(req: AuthRequest, res: Response): Pro
 
     if (user.role === 'employee' && expense.user_id !== user.userId) {
       res.status(403).json({ error: 'Forbidden: You can only attach receipts to your own expenses.' });
+      return;
+    }
+
+    // Validate URL against Server-Side Request Forgery (SSRF)
+    try {
+      await validateUrlForSsrf(url);
+    } catch (ssrfError: any) {
+      res.status(400).json({ error: ssrfError.message || 'Invalid or prohibited receipt URL.' });
       return;
     }
 
