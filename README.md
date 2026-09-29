@@ -507,14 +507,9 @@ Following our security audit, here are the vulnerabilities identified, what has 
    - **Previously**: Fetched remote URLs via HTTP without verifying the destination host, exposing internal infrastructure, local ports, and cloud instance metadata (`169.254.169.254`).
    - **New Fix**: Implemented pre-flight DNS and IP validation in `src/utils/ssrfValidator.ts`. Automatically blocks requests targeting `localhost`, loopback addresses (`127.0.0.0/8`), private networks (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), or cloud metadata endpoints (`169.254.169.254`).
 
----
+6. **CORS Origin Whitelisting & Centralized Production Secrets**:
+   - **Previously**: Dynamically mirrored arbitrary requesting origins (`origin: true`) with `credentials: true`, allowing untrusted third-party sites to perform credentialed requests. Also used hardcoded fallback secret strings in multiple files if `JWT_SECRET` was omitted.
+   - **New Fix**: Implemented explicit CORS origin whitelisting in `src/app.ts` (`ALLOWED_ORIGINS` with safe defaults). Centralized secret management in `src/config/jwt.ts`, which validates secrets and halts server startup in production if `JWT_SECRET` is missing or under 32 characters.
 
-### 📋 Next Planned Security Fixes
-
-The following item was identified in our audit and is scheduled to be implemented next:
-
-1. **Tighten CORS & Remove Hardcoded JWT Secret**:
-   - *Current State*: Reflects requesting origins (`origin: true`) and has a hardcoded default fallback JWT secret.
-   - *Fix*: Whitelist explicit frontend origins and enforce a mandatory environment `JWT_SECRET` in production.
 
 

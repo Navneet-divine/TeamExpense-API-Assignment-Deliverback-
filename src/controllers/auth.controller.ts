@@ -3,8 +3,8 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { query } from '../config/db';
+import { JWT_SECRET } from '../config/jwt';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_teamexpense_2026';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5001';
 

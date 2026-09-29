@@ -1,8 +1,7 @@
 import { Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AuthRequest, AuthUserPayload, UserRole } from '../types';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_teamexpense_2026';
+import { JWT_SECRET } from '../config/jwt';
 
 export function authenticate(req: AuthRequest, res: Response, next: NextFunction): void {
   const token =

@@ -2,8 +2,7 @@ import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { AuthRequest, AuthUserPayload } from '../types';
 import { query } from '../config/db';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_teamexpense_2026';
+import { JWT_SECRET } from '../config/jwt';
 
 function escapeHtml(str: string | null | undefined): string {
   if (!str) return '';

@@ -165,5 +165,26 @@ describe('Feature 1: Authentication Endpoints', () => {
       expect(loginRes.body.token).toBeDefined();
     });
   });
+
+  describe('CORS Whitelist Protection', () => {
+    it('should reflect Access-Control-Allow-Origin for whitelisted origins', async () => {
+      const res = await request(app)
+        .get('/health')
+        .set('Origin', 'http://localhost:3000');
+
+      expect(res.status).toBe(200);
+      expect(res.headers['access-control-allow-origin']).toBe('http://localhost:3000');
+      expect(res.headers['access-control-allow-credentials']).toBe('true');
+    });
+
+    it('should withhold Access-Control-Allow-Origin header for unauthorized origins', async () => {
+      const res = await request(app)
+        .get('/health')
+        .set('Origin', 'https://evil-unauthorized-site.com');
+
+      expect(res.status).toBe(200);
+      expect(res.headers['access-control-allow-origin']).toBeUndefined();
+    });
+  });
 });
 

@@ -11,10 +11,30 @@ import reportRoutes from './routes/report.routes';
 
 const app: Application = express();
 
-app.use(cors({
-  credentials: true,
-  origin: true
-}));
+const defaultAllowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5001',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:5001'
+];
+
+const configuredOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+  : defaultAllowedOrigins;
+
+app.use(
+  cors({
+    credentials: true,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server, automated tests)
+      if (!origin || configuredOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    }
+  })
+);
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
