@@ -67,8 +67,8 @@ The database is designed with multi-tenant company isolation, foreign key constr
 
 ### 2. Clone & Install
 ```bash
-git clone <your-repo-link>
-cd Deliverback_Assignment
+git clone https://github.com/Navneet-divine/TeamExpense-API-Assignment-Deliverback-.git
+cd TeamExpense-API-Assignment-Deliverback-
 npm install
 ```
 
