@@ -4,9 +4,9 @@
   "description": "Multi-company expense tracker backend API",
   "main": "dist/app.js",
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/app.js",
-    "dev": "tsx watch src/app.ts",
+    "build": "node api.js && tsc",
+    "start": "node api.js && node dist/app.js",
+    "dev": "node api.js && tsx watch src/app.ts",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",
     "test": "jest --runInBand --detectOpenHandles --forceExit --testTimeout=30000"

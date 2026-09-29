@@ -522,3 +522,8 @@ Following our security audit, here are the vulnerabilities identified, what has 
 9. **File Upload Extension & MIME Whitelisting (`POST /expenses/:id/receipt`)**:
    - **Previously**: Only inspected the client-controlled `file.mimetype` header without checking the file extension, potentially allowing malicious files (e.g. `.sh`, `.php`, `.exe`) to be uploaded if paired with an image MIME type.
    - **New Fix**: Enhanced `src/middleware/upload.ts` to strictly validate both `file.mimetype` and `path.extname(file.originalname).toLowerCase()` against an explicit safe extension whitelist (`.jpg`, `.jpeg`, `.png`, `.webp`, `.gif`, `.pdf`).
+
+10. **CSV Formula Injection Sanitization with Leading Whitespace Handling (`GET /reports/export.csv`)**:
+    - **Previously**: Checked if cells started with `=`, `+`, `-`, or `@`. However, spreadsheets (Excel, LibreOffice) ignore leading whitespace (spaces, tabs) and execute formulas prefixed with spaces (e.g. `   =cmd|' /C calc'!A0`) or trigger characters like `%` and `\t`.
+    - **New Fix**: Updated `escapeCsvCell()` in `src/controllers/report.controller.ts` to trim leading whitespace (`str.trimStart()`) and inspect against expanded formula triggers (`/^[=+\-@\t\r%]/`), prepending a single quote (`'`) to safely deactivate formula execution in spreadsheet software.
+
